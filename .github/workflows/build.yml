@@ -33,7 +33,7 @@ jobs:
       - name: Extract project ZIP
         run: |
           mkdir -p build-source
-          unzip -o Rainbow_Chronograph_WearOS_Project.zip -d build-source
+          unzip -o Rainbow_Chronograph_WearOS_Project_Centered_Readings.zip -d build-source
           PROJECT_FILE=$(find build-source \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
           if [ -z "$PROJECT_FILE" ]; then
             echo "Could not find the Gradle project."
