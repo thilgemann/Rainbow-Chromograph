@@ -1,0 +1,55 @@
+
+name: Build Rainbow Chronograph Watch Face
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "Rainbow_Chronograph_WearOS_Project.zip"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Extract project ZIP
+        run: |
+          mkdir -p build-source
+          unzip -o Rainbow_Chronograph_WearOS_Project.zip -d build-source
+          PROJECT_DIR=$(find build-source -name settings.gradle -o -name settings.gradle.kts | head -n 1 | xargs dirname)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Could not find the Gradle project."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build watch face
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rainbow-chronograph-apk
+          path: build-source/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+concurrency: 
