@@ -10,7 +10,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Check out repository
@@ -20,7 +24,7 @@ jobs:
         run: |
           mkdir -p build-source
           unzip -o Rainbow_Chronograph_WearOS_Project.zip -d build-source
-          PROJECT_DIR=$(find build-source -name settings.gradle -o -name settings.gradle.kts | head -n 1 | xargs dirname)
+          PROJECT_DIR=$(find build-source \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1 | xargs dirname)
           if [ -z "$PROJECT_DIR" ]; then
             echo "Could not find the Gradle project."
             exit 1
@@ -33,13 +37,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+
+      - name: Check Android SDK
+        run: |
+          echo "Android SDK: $ANDROID_HOME"
+          test -d "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/platforms"
 
       - name: Build watch face
         run: |
