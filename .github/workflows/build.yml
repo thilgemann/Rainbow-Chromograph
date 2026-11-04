@@ -12,37 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
 
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Extract project ZIP
-        run: |
-          mkdir -p build-source
-          unzip -o Rainbow_Chronograph_WearOS_Project.zip -d build-source
-
-          PROJECT_FILE=$(find build-source -name settings.gradle -o -name settings.gradle.kts | head -n 1)
-
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "Could not find the Gradle project."
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
-          WATCHFACE_XML=$(find "$PROJECT_DIR" -path '*/res/raw/watchface.xml' | head -n 1)
-
-          if [ -z "$WATCHFACE_XML" ]; then
-            echo "Could not find watchface.xml."
-            exit 1
-          fi
-
-          echo "WATCHFACE_XML=$WATCHFACE_XML" >> "$GITHUB_ENV"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -50,38 +22,56 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Validate Watch Face Format XML
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract project ZIP
         run: |
-          git clone --depth 1 https://github.com/google/watchface.git validator-source
-          cd validator-source/third_party/wff
-          ./gradlew :specification:validator:executable-jar
-
-          VALIDATOR=$(find specification/validator/build/libs -name 'wff-validator.jar' | head -n 1)
-
-          if [ -z "$VALIDATOR" ]; then
-            echo "Could not find the WFF validator."
+          mkdir -p build-source
+          unzip -o Rainbow_Chronograph_WearOS_Project.zip -d build-source
+          PROJECT_FILE=$(find build-source \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Could not find the Gradle project."
             exit 1
           fi
-
-          java -jar "$VALIDATOR" 2 "$GITHUB_WORKSPACE/$WATCHFACE_XML"
+          PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          WATCHFACE_XML=$(find "$PROJECT_DIR" -path '*/res/raw/watchface.xml' | head -n 1)
+          if [ -z "$WATCHFACE_XML" ]; then
+            echo "Could not find watchface.xml."
+            exit 1
+          fi
+          echo "WATCHFACE_XML=$WATCHFACE_XML" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Check Android SDK
+      - name: Build Watch Face Format validator
         run: |
-          echo "Android SDK: $ANDROID_HOME"
-          test -d "$ANDROID_HOME/platforms"
-          ls "$ANDROID_HOME/platforms"
+          git clone --depth 1 https://github.com/google/watchface.git validator-source
+          cd validator-source/third_party/wff
+          ./gradlew :specification:validator:executable-jar
+          VALIDATOR=$(find specification/validator/build/libs -name 'wff-validator.jar' | head -n 1)
+          if [ -z "$VALIDATOR" ]; then
+            echo "Could not find the WFF validator JAR."
+            exit 1
+          fi
+          echo "VALIDATOR_JAR=$PWD/$VALIDATOR" >> "$GITHUB_ENV"
 
-      - name: Build watch face
+      - name: Validate Watch Face Format XML
+        run: java -jar "$VALIDATOR_JAR" 2 "$GITHUB_WORKSPACE/$WATCHFACE_XML"
+
+      - name: Build watch face APK
         run: |
           cd "$PROJECT_DIR"
           gradle assembleDebug
 
-      - name: Save APK
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: rainbow-chronograph-apk
