@@ -52,4 +52,3 @@ jobs:
           name: rainbow-chronograph-apk
           path: build-source/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-concurrency: 
