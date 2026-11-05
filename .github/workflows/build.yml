@@ -61,21 +61,24 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      
       - name: Get Watch Face Format validator
         run: |
           git clone --depth 1 https://github.com/google/watchface.git validator
 
-          cd validator
+          cd validator/third_party/wff
+
+          chmod +x gradlew
           ./gradlew :specification:validator:executable-jar
 
-          VALIDATOR_JAR="$(find specification/validator/build -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | head -n 1)"
+          VALIDATOR_JAR="$GITHUB_WORKSPACE/validator/third_party/wff/specification/validator/build/libs/wff-validator.jar"
 
-          if [ -z "$VALIDATOR_JAR" ]; then
-            echo "Could not find the Watch Face Format validator JAR."
+          if [ ! -f "$VALIDATOR_JAR" ]; then
+            echo "Validator JAR was not created."
             exit 1
           fi
 
-          echo "VALIDATOR_JAR=$GITHUB_WORKSPACE/validator/$VALIDATOR_JAR" >> "$GITHUB_ENV"
+          echo "VALIDATOR_JAR=$VALIDATOR_JAR" >> "$GITHUB_ENV"
 
       - name: Validate Watch Face Format
         run: |
