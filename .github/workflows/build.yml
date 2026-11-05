@@ -1,11 +1,11 @@
 
-name: Build Rainbow Chronograph Watch Face
+name: Build Modern Rainbow Gemstone Watch Face
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Rainbow_Chronograph_WearOS_Project.zip"
+      - "Modern_Rainbow_Gemstone_WearOS_Project_CleanDial.zip"
       - ".github/workflows/build.yml"
 
 jobs:
@@ -24,28 +24,33 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-         packages: 'platform-tools'
 
       - name: Install Android SDK platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Extract project ZIP
         run: |
           mkdir -p build-source
-          unzip -o Rainbow_Chronograph_WearOS_Project_Centered_Readings.zip -d build-source
+          unzip -o Modern_Rainbow_Gemstone_WearOS_Project_CleanDial.zip -d build-source
+
           PROJECT_FILE=$(find build-source \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+
           if [ -z "$PROJECT_FILE" ]; then
             echo "Could not find the Gradle project."
             exit 1
           fi
+
           PROJECT_DIR=$(dirname "$PROJECT_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
           WATCHFACE_XML=$(find "$PROJECT_DIR" -path '*/res/raw/watchface.xml' | head -n 1)
+
           if [ -z "$WATCHFACE_XML" ]; then
             echo "Could not find watchface.xml."
             exit 1
           fi
+
           echo "WATCHFACE_XML=$WATCHFACE_XML" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
@@ -56,17 +61,23 @@ jobs:
       - name: Build Watch Face Format validator
         run: |
           git clone --depth 1 https://github.com/google/watchface.git validator-source
+
           cd validator-source/third_party/wff
+
           ./gradlew :specification:validator:executable-jar
+
           VALIDATOR=$(find specification/validator/build/libs -name 'wff-validator.jar' | head -n 1)
+
           if [ -z "$VALIDATOR" ]; then
             echo "Could not find the WFF validator JAR."
             exit 1
           fi
+
           echo "VALIDATOR_JAR=$PWD/$VALIDATOR" >> "$GITHUB_ENV"
 
       - name: Validate Watch Face Format XML
-        run: java -jar "$VALIDATOR_JAR" 2 "$GITHUB_WORKSPACE/$WATCHFACE_XML"
+        run: |
+          java -jar "$VALIDATOR_JAR" 2 "$GITHUB_WORKSPACE/$WATCHFACE_XML"
 
       - name: Build watch face APK
         run: |
@@ -76,6 +87,6 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: rainbow-chronograph-apk
+          name: modern-rainbow-gemstone-apk
           path: build-source/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
