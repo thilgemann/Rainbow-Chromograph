@@ -1,16 +1,19 @@
 
-name: Build Modern Rainbow Gemstone Watch Face
+name: Build Rainbow Chronograph Watch Face
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - "Modern_Rainbow_Gemstone_WearOS_Project_CleanDial.zip"
+      - "Modern_Rainbow_Gemstone_WearOS_Project_Icons_And_Larger_Readouts.zip"
       - ".github/workflows/build.yml"
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Check out repository
@@ -25,7 +28,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-           packages: 'platform-tools'
+          packages: 'platform-tools'
 
       - name: Install Android SDK platform
         run: |
@@ -34,61 +37,58 @@ jobs:
       - name: Extract project ZIP
         run: |
           mkdir -p build-source
-          unzip -o Modern_Rainbow_Gemstone_WearOS_Project_CleanDial.zip -d build-source
+          unzip -q Modern_Rainbow_Gemstone_WearOS_Project_Icons_And_Larger_Readouts.zip -d build-source
 
-          PROJECT_FILE=$(find build-source \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+          PROJECT_DIR="$(find build-source -name settings.gradle -printf '%h\n' | head -n 1)"
 
-          if [ -z "$PROJECT_FILE" ]; then
-            echo "Could not find the Gradle project."
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Could not find settings.gradle in extracted project."
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$PROJECT_FILE")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          WATCHFACE_XML="$PROJECT_DIR/app/src/main/res/raw/watchface.xml"
 
-          WATCHFACE_XML=$(find "$PROJECT_DIR" -path '*/res/raw/watchface.xml' | head -n 1)
-
-          if [ -z "$WATCHFACE_XML" ]; then
+          if [ ! -f "$WATCHFACE_XML" ]; then
             echo "Could not find watchface.xml."
             exit 1
           fi
 
-          echo "WATCHFACE_XML=$WATCHFACE_XML" >> "$GITHUB_ENV"
+          echo "PROJECT_DIR=$GITHUB_WORKSPACE/$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "WATCHFACE_XML=$GITHUB_WORKSPACE/$WATCHFACE_XML" >> "$GITHUB_ENV"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: '8.9'
 
-      - name: Build Watch Face Format validator
+      - name: Get Watch Face Format validator
         run: |
-          git clone --depth 1 https://github.com/google/watchface.git validator-source
+          git clone --depth 1 https://github.com/google/watchface.git validator
 
-          cd validator-source/third_party/wff
-
+          cd validator
           ./gradlew :specification:validator:executable-jar
 
-          VALIDATOR=$(find specification/validator/build/libs -name 'wff-validator.jar' | head -n 1)
+          VALIDATOR_JAR="$(find specification/validator/build -type f -name '*.jar' ! -name '*sources*' ! -name '*javadoc*' | head -n 1)"
 
-          if [ -z "$VALIDATOR" ]; then
-            echo "Could not find the WFF validator JAR."
+          if [ -z "$VALIDATOR_JAR" ]; then
+            echo "Could not find the Watch Face Format validator JAR."
             exit 1
           fi
 
-          echo "VALIDATOR_JAR=$PWD/$VALIDATOR" >> "$GITHUB_ENV"
+          echo "VALIDATOR_JAR=$GITHUB_WORKSPACE/validator/$VALIDATOR_JAR" >> "$GITHUB_ENV"
 
-      - name: Validate Watch Face Format XML
+      - name: Validate Watch Face Format
         run: |
-          java -jar "$VALIDATOR_JAR" 2 "$GITHUB_WORKSPACE/$WATCHFACE_XML"
+          java -jar "$VALIDATOR_JAR" 2 "$WATCHFACE_XML"
 
       - name: Build watch face APK
         run: |
           cd "$PROJECT_DIR"
-          gradle assembleDebug
+          gradle assembleDebug --no-daemon
 
-      - name: Upload debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: modern-rainbow-gemstone-apk
-          path: build-source/**/build/outputs/apk/debug/*.apk
+          name: Rainbow-Gemstone-Watch-Face-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
