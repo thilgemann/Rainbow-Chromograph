@@ -37,7 +37,7 @@ jobs:
       - name: Extract project ZIP
         run: |
           mkdir -p build-source
-          unzip -q Modern_Rainbow_Gemstone_WearOS_Project_Icons_And_Larger_Readouts.zip -d build-source
+          unzip -q Modern_Rainbow_Gemstone_WearOS_Project_Cleaned_Bottom_Bands.zip -d build-source
 
           PROJECT_DIR="$(find build-source -name settings.gradle -printf '%h\n' | head -n 1)"
 
